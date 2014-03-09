@@ -1,0 +1,110 @@
+#!/usr/bin/env ruby
+
+# Script to grab the IP address of a Digital Ocean instance.
+
+require "rest-client"
+require "json"
+
+defaultkey = String.new
+apikey = String.new
+clientid = String.new
+keys = Array.new
+host = String.new
+
+# Load the API key and client ID from a file. 
+begin
+	configfile = File.new("/Users/karlkatzke/.digitalocean",'r')
+	configfile.each_line do |line| 
+		if line.split(",").first == "default"
+			default = line.split(",")
+			defaultkey = default[1].chomp
+		elsif line.split(",").first == "key"
+			keys << line.split(",")
+		end
+	end
+
+rescue SystemCallError
+	puts "Failed to read configuration file. We need a ~/.digitalocean file to run."
+	puts $!
+	exit 1
+end
+
+if keys.count > 0 
+	# There's more than one key in the config file. See if there's a default.
+	if defaultkey.empty?
+		set = false
+		# Loop through the keys and see if ARGV[0] matches the name of the keys.
+		keys.each do |k|
+			if k[1].chomp == ARGV[0].chomp
+				defaultkey = ARGV[0].chomp
+				host = ARGV[1].chomp
+				set = true
+			end
+		end
+		# If that didn't find a keyset to use, then error. 
+		unless set 
+			puts "There are multiple keys and we don't know which set you want to use."
+			exit 1
+		end
+	else 
+		host = ARGV[0].chomp
+	end
+	# Set the proper key.
+	keys.each do |k|
+		if k[1].to_s.chomp === defaultkey.to_s.chomp
+			clientid = k[2].to_s.chomp
+			apikey = k[3].to_s.chomp
+		end
+	end
+else 
+	# Only one key. Set the apikey and clientid. 
+	keys.each do |k|
+		clientid = k[2]
+		apikey = k[3]
+	end
+end
+
+# Debug
+#puts "host: #{host} defaultkey: #{defaultkey} clientid: #{clientid} apikey: #{apikey}"
+#exit 0
+
+if ARGV[0] == "--help"
+	puts "Fetches IP addresses of digital ocean droplets."
+	puts "   Usage: "
+	puts "       do_fetch_ip <instance name>"
+	puts "       do_fetch_ip all ( Prints all droplet names and their IP. Useful for populating hosts or dns.)"
+	puts "       do_fetch_ip --help ( Prints this and exits.)"
+	puts " "
+	if ARGV.count < 1 
+		puts "Error: I need to know what droplet you're looking for."
+		exit 1
+	else
+		exit 0
+	end
+end
+
+response = RestClient.get("https://api.digitalocean.com/droplets/?client_id=#{clientid}&api_key=#{apikey}")
+
+data = JSON.parse(response)
+
+droplets = data['droplets']
+
+
+if host == "all"
+	# Prints list of all droplets.
+	droplets.each do |drop|
+		puts "#{drop['name']},#{drop['ip_address']}"
+	end
+else
+	droplets.each do |drop|
+		if drop['name'] == host
+			print drop['ip_address']
+			$stdout.flush
+			exit 0
+		end
+	end
+end
+
+# If we get here, we didn't find a name.
+puts "Droplet named #{host} not found."
+exit 1

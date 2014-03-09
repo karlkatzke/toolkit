@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# Shells into a digital ocean server based on the name
+
+if [[ $# > 0 ]]; then
+	ipaddr=`~/bin/do_fetch_ip $1`
+	exitcode=$?
+	if [[ exitcode -eq 0 ]]; then
+		ssh -i ~/.ssh/digitalocean root@$ipaddr
+	else
+		echo $ipaddr
+		echo "Couldn't look up a droplet by that name."
+		exit 1
+	fi		
+else
+	echo "I need a hostname to shell into."
+	exit 1
+fi
