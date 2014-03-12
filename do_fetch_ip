@@ -83,7 +83,12 @@ if ARGV[0] == "--help"
 	end
 end
 
-response = RestClient.get("https://api.digitalocean.com/droplets/?client_id=#{clientid}&api_key=#{apikey}")
+begin 
+	response = RestClient.get("https://api.digitalocean.com/droplets/?client_id=#{clientid}&api_key=#{apikey}")
+rescue RestClient::Exception => restError
+	puts restError.response
+end
+
 
 data = JSON.parse(response)
 
@@ -95,6 +100,7 @@ if host == "all"
 	droplets.each do |drop|
 		puts "#{drop['name']},#{drop['ip_address']}"
 	end
+	exit 0
 else
 	droplets.each do |drop|
 		if drop['name'] == host
