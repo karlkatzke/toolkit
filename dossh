@@ -3,7 +3,7 @@
 # Shells into a digital ocean server based on the name
 
 if [[ $# > 0 ]]; then
-	ipaddr=`~/bin/do_fetch_ip $1`
+	ipaddr=`~/bin/do_fetch_ip $1 $2`
 	exitcode=$?
 	if [[ exitcode -eq 0 ]]; then
 		ssh -i ~/.ssh/digitalocean root@$ipaddr

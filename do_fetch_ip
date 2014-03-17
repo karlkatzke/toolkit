@@ -6,67 +6,20 @@ require "rest-client"
 require "json"
 
 defaultkey = String.new
+usekey = String.new
 apikey = String.new
 clientid = String.new
 keys = Array.new
 host = String.new
 
-# Load the API key and client ID from a file. 
-begin
-	configfile = File.new("/Users/karlkatzke/.digitalocean",'r')
-	configfile.each_line do |line| 
-		if line.split(",").first == "default"
-			default = line.split(",")
-			defaultkey = default[1].chomp
-		elsif line.split(",").first == "key"
-			keys << line.split(",")
-		end
-	end
-
-rescue SystemCallError
-	puts "Failed to read configuration file. We need a ~/.digitalocean file to run."
-	puts $!
-	exit 1
-end
-
-if keys.count > 0 
-	# There's more than one key in the config file. See if there's a default.
-	if defaultkey.empty?
-		set = false
-		# Loop through the keys and see if ARGV[0] matches the name of the keys.
-		keys.each do |k|
-			if k[1].chomp == ARGV[0].chomp
-				defaultkey = ARGV[0].chomp
-				host = ARGV[1].chomp
-				set = true
-			end
-		end
-		# If that didn't find a keyset to use, then error. 
-		unless set 
-			puts "There are multiple keys and we don't know which set you want to use."
-			exit 1
-		end
-	else 
-		host = ARGV[0].chomp
-	end
-	# Set the proper key.
+def keymatch(keys,keyname)
 	keys.each do |k|
-		if k[1].to_s.chomp === defaultkey.to_s.chomp
-			clientid = k[2].to_s.chomp
-			apikey = k[3].to_s.chomp
+		if k[1].chomp == keyname
+			return keyname
 		end
 	end
-else 
-	# Only one key. Set the apikey and clientid. 
-	keys.each do |k|
-		clientid = k[2]
-		apikey = k[3]
-	end
+	return false
 end
-
-# Debug
-#puts "host: #{host} defaultkey: #{defaultkey} clientid: #{clientid} apikey: #{apikey}"
-#exit 0
 
 if ARGV[0] == "--help"
 	puts "Fetches IP addresses of digital ocean droplets."
@@ -81,6 +34,61 @@ if ARGV[0] == "--help"
 	else
 		exit 0
 	end
+end
+
+# Load the API key and client ID from a file. 
+begin
+	configfile = File.new("/Users/karlkatzke/.digitalocean",'r')
+	configfile.each_line do |line| 
+		if line.split(",").first == "default"
+			default = line.split(",")
+			defaultkey = default[1].chomp
+		elsif line.split(",").first == "key"
+			keys << line.split(",")
+		end
+	end
+rescue SystemCallError
+	puts "Failed to read configuration file. We need a ~/.digitalocean file to run."
+	puts $!
+	exit 1
+end
+
+
+if keys.count > 0 
+	# There's keys in the configuration file. 
+	if keys.count > 1 and keymatch(keys,ARGV[0].chomp)
+		# Is there more than one? See if one of the keys matches ARGV[0]... if so, use it.
+		usekey = keymatch(keys,ARGV[0].chomp)
+		host = ARGV[1].chomp
+		# Get the key out of the file.
+		# TODO: functionalize
+		keys.each do |key|
+			if key[1] == usekey
+				clientid = key[2]
+				apikey = key[3]
+			end
+		end
+	elsif !defaultkey.emtpy? 
+		# If we've specified a default, use it. 
+		usekey = defaultkey
+		host = ARGV[0].chomp
+		# Get the key out of the file.
+		# TODO: functionalize
+		keys.each do |key|
+			if key[1] == usekey
+				clientid = key[2]
+				apikey = key[3]
+			end
+		end
+	else
+	# Otherwise, use the only key in the key file
+		usekey = keys.first[1]
+		host = ARGV[0].chomp
+		clientid = keys.first[2]
+		apikey = keys.first[3]
+	end
+else 
+	raise "Failed to specify a key."
 end
 
 begin 
